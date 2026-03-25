@@ -22,14 +22,14 @@ jobs:
       - name: Install ESP32 Platform
         run: |
           arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-          arduino-cli core install esp32:esp32 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          # 使用最穩定的 2.0.17 版本
+          arduino-cli core install esp32:esp32@2.0.17 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
       - name: Install U8g2 Library
         run: arduino-cli lib install "U8g2"
 
       - name: Compile Firmware
         run: |
-          # 針對 ESP32-C3 編譯 src/src.ino
           arduino-cli compile --fqbn esp32:esp32:esp32c3 \
             --build-property "compiler.c.elf.flags=-Wl,-zmuldefs" \
             --output-dir ./build ./src
@@ -38,7 +38,6 @@ jobs:
         run: |
           pip install esptool
           cd ./build
-          # 合併為單一固件，方便用戶從 0x0 燒錄
           esptool.py --chip esp32c3 merge_bin \
             -o ESP32_C3_Spammer_Full_Flash.bin \
             --flash_mode dio --flash_size 4MB \
