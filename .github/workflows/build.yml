@@ -1,0 +1,61 @@
+name: Build and Release Firmware
+
+on:
+  push:
+    branches:
+      - main  # 只要 main 分支有 code 更新就執行
+  workflow_dispatch: # 允許你手動點擊按鈕執行
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - board: esp32:esp32:esp32
+            name: ESP32_WROOM
+            mcu: esp32
+          - board: esp32:esp32:esp32c3
+            name: ESP32_C3_SuperMini
+            mcu: esp32c3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+
+      - name: Install ESP32 Platform
+        run: |
+          arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+
+      - name: Install U8g2 Library
+        run: arduino-cli lib install "U8g2"
+
+      - name: Compile Firmware
+        run: |
+          arduino-cli compile --fqbn ${{ matrix.board }} \
+            --build-property "compiler.c.elf.flags=-Wl,-zmuldefs" \
+            --output-dir ./build/${{ matrix.name }} ./src/ESP32_WiFi_Spammer.ino
+
+      - name: Merge Binaries (Factory Flash File)
+        run: |
+          pip install esptool
+          cd ./build/${{ matrix.name }}
+          esptool.py --chip ${{ matrix.mcu }} merge_bin \
+            -o ${{ matrix.name }}_Full_Flash.bin \
+            --flash_mode dio --flash_size 4MB \
+            0x0000 *.bootloader.bin \
+            0x8000 *.partitions.bin \
+            0xe000 boot_app0.bin \
+            0x10000 *.bin
+
+      - name: Upload Firmware Artifacts
+        uses: actions/upload-artifact@v4 # 更新到 v4 版本更穩定
+        with:
+          name: ${{ matrix.name }}-Full-Flash
+          path: build/${{ matrix.name }}/${{ matrix.name }}_Full_Flash.bin
