@@ -11,19 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    strategy:
-      matrix:
-        include:
-          - board: esp32:esp32:esp32
-            name: ESP32_WROOM
-            mcu: esp32
-          - board: esp32:esp32:esp32c3
-            name: ESP32_C3_SuperMini
-            mcu: esp32c3
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Arduino CLI
         uses: arduino/setup-arduino-cli@v1
@@ -38,18 +29,18 @@ jobs:
 
       - name: Compile Firmware
         run: |
-          # 指向你實際的檔名：ESP32_WiFi_Spammer-C3.ino
-          arduino-cli compile --fqbn ${{ matrix.board }} \
+          # 針對 ESP32-C3 編譯 src/src.ino
+          arduino-cli compile --fqbn esp32:esp32:esp32c3 \
             --build-property "compiler.c.elf.flags=-Wl,-zmuldefs" \
-            --output-dir ./build/${{ matrix.name }} ./src/ESP32_WiFi_Spammer-C3.ino
+            --output-dir ./build ./src
 
       - name: Merge Binaries (Factory Flash File)
         run: |
           pip install esptool
-          cd ./build/${{ matrix.name }}
+          cd ./build
           # 合併為單一固件，方便用戶從 0x0 燒錄
-          esptool.py --chip ${{ matrix.mcu }} merge_bin \
-            -o ${{ matrix.name }}_Full_Flash.bin \
+          esptool.py --chip esp32c3 merge_bin \
+            -o ESP32_C3_Spammer_Full_Flash.bin \
             --flash_mode dio --flash_size 4MB \
             0x0000 *.bootloader.bin \
             0x8000 *.partitions.bin \
@@ -59,5 +50,5 @@ jobs:
       - name: Upload Firmware Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}-Full-Flash
-          path: build/${{ matrix.name }}/${{ matrix.name }}_Full_Flash.bin
+          name: ESP32-C3-Full-Flash
+          path: build/ESP32_C3_Spammer_Full_Flash.bin
