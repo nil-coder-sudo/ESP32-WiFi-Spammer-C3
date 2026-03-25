@@ -3,8 +3,8 @@ name: Build and Release Firmware
 on:
   push:
     branches:
-      - main  # 只要 main 分支有 code 更新就執行
-  workflow_dispatch: # 允許你手動點擊按鈕執行
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
@@ -38,14 +38,16 @@ jobs:
 
       - name: Compile Firmware
         run: |
+          # 指向你實際的檔名：ESP32_WiFi_Spammer-C3.ino
           arduino-cli compile --fqbn ${{ matrix.board }} \
             --build-property "compiler.c.elf.flags=-Wl,-zmuldefs" \
-            --output-dir ./build/${{ matrix.name }} ./src/ESP32_WiFi_Spammer.ino
+            --output-dir ./build/${{ matrix.name }} ./src/ESP32_WiFi_Spammer-C3.ino
 
       - name: Merge Binaries (Factory Flash File)
         run: |
           pip install esptool
           cd ./build/${{ matrix.name }}
+          # 合併為單一固件，方便用戶從 0x0 燒錄
           esptool.py --chip ${{ matrix.mcu }} merge_bin \
             -o ${{ matrix.name }}_Full_Flash.bin \
             --flash_mode dio --flash_size 4MB \
@@ -55,7 +57,7 @@ jobs:
             0x10000 *.bin
 
       - name: Upload Firmware Artifacts
-        uses: actions/upload-artifact@v4 # 更新到 v4 版本更穩定
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}-Full-Flash
           path: build/${{ matrix.name }}/${{ matrix.name }}_Full_Flash.bin
